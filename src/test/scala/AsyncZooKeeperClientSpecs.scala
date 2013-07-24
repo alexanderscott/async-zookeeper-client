@@ -4,10 +4,9 @@ package com.github.bigtoast.zookeeper
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfter, WordSpec}
 import org.scalatest.matchers.ShouldMatchers
 import java.util.concurrent.{TimeUnit, CountDownLatch, Executors}
-import akka.dispatch.{Await, ExecutionContext, Future}
-import akka.util.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.duration._
 import org.apache.zookeeper.{WatchedEvent, Watcher, CreateMode}
-import akka.util.Duration
 import compat.Platform
 import com.github.bigtoast.zookeeper.AsyncResponse.FailedAsyncResponse
 import org.apache.zookeeper.KeeperException.{NoNodeException, NotEmptyException, BadVersionException}
