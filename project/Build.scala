@@ -5,7 +5,7 @@ import Process._
 
 object AsyncZkClient extends Build {
 
-  val VERSION = "0.2.3"
+  val VERSION = "0.2.3-pc"
 
   val dependencies =
     "org.apache.zookeeper" %  "zookeeper"  % "3.4.3" ::
@@ -15,7 +15,7 @@ object AsyncZkClient extends Build {
 
   val project = Project("async-zk-client",file("."),
     settings = Defaults.defaultSettings ++ Seq(
-      organization := "com.github.bigtoast",
+      organization := "com.github.partycoder",
       name         := "async-zk-client",
       version      := VERSION,
       scalaVersion := "2.10.2",
@@ -28,10 +28,10 @@ object AsyncZkClient extends Build {
           <exclude org="thrift" module="libthrift" />
         </dependencies>,
 
-      publishTo := Some(Resolver.file("bigtoast.github.com", file(Path.userHome + "/Projects/BigToast/bigtoast.github.com/repo"))),
+      publishTo := Some(Resolver.file("partycoder.github.com", file(Path.userHome + "/Workspace/GitHub repo"))),
 
       publishDocs <<= ( doc in Compile , target in Compile in doc, version ) map { ( docs, dir, v ) =>
-        val newDir = Path.userHome / "/Projects/BigToast/bigtoast.github.com/docs/async-zk-client" / v
+        val newDir = Path.userHome / "/Workspace/GitHub repo/docs/async-zk-client" / v
         IO.delete( newDir )
         IO.createDirectory( newDir )
         IO.copyDirectory( dir, newDir )
