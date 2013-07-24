@@ -1,5 +1,4 @@
-
-package com.github.bigtoast.zookeeper
+package com.github.partycoder.zookeeper
 
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfter, WordSpec}
 import org.scalatest.matchers.ShouldMatchers
@@ -8,11 +7,12 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
 import org.apache.zookeeper.{WatchedEvent, Watcher, CreateMode}
 import compat.Platform
-import com.github.bigtoast.zookeeper.AsyncResponse.FailedAsyncResponse
+import com.github.partycoder.zookeeper.AsyncResponse.FailedAsyncResponse
 import org.apache.zookeeper.KeeperException.{NoNodeException, NotEmptyException, BadVersionException}
 import AsyncZooKeeperClient._
 import org.apache.zookeeper.Watcher.Event.EventType
 import java.util.concurrent.atomic.AtomicInteger
+import ExecutionContext.Implicits.global
 
 class AsyncZooKeeperClientSpecs extends WordSpec with ShouldMatchers with BeforeAndAfter with BeforeAndAfterAll {
 

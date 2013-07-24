@@ -1,5 +1,5 @@
 
-package com.github.bigtoast.zookeeper
+package com.github.partycoder.zookeeper
 
 import org.slf4j.LoggerFactory
 import org.apache.zookeeper._
