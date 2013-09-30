@@ -1,11 +1,10 @@
-
 import sbt._
-import Keys._
-import Process._
+import sbt.Keys._
+import scala.Some
 
 object AsyncZkClient extends Build {
 
-  val VERSION = "0.2.3-pc"
+  val VERSION = "0.2.3-pc-0.2"
 
   val dependencies =
     "org.apache.zookeeper" %  "zookeeper"  % "3.4.3" ::
@@ -22,21 +21,26 @@ object AsyncZkClient extends Build {
 
       ivyXML :=
         <dependencies>
+          <exclude org="org.jboss.netty" module="netty" />
           <exclude org="com.sun.jmx" module="jmxri" />
           <exclude org="com.sun.jdmk" module="jmxtools" />
           <exclude org="javax.jms" module="jms" />
           <exclude org="thrift" module="libthrift" />
         </dependencies>,
 
-      publishTo := Some(Resolver.file("partycoder.github.com", file(Path.userHome + "/Workspace/GitHub repo"))),
+      publishTo := Some(Resolver.file("partycoder.github.com", file(Path.userHome + "/Workspace/repo"))),
 
       publishDocs <<= ( doc in Compile , target in Compile in doc, version ) map { ( docs, dir, v ) =>
-        val newDir = Path.userHome / "/Workspace/GitHub repo/docs/async-zk-client" / v
+        val newDir = Path.userHome / "/Workspace/repo/docs/async-zk-client" / v
         IO.delete( newDir )
         IO.createDirectory( newDir )
         IO.copyDirectory( dir, newDir )
       },
 
-      libraryDependencies ++= dependencies
+      libraryDependencies ++= dependencies,
+
+      resolvers += Resolver.url("linter", url("http://hairyfotr.github.io/linteRepo/releases"))
     ))
+
+  addCompilerPlugin("com.foursquare.lint" %% "linter" % "0.1-SNAPSHOT")
 }

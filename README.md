@@ -1,24 +1,22 @@
 Scala Async ZooKeeper Client
 ----------------------------
 
-Callbacks are not composable. This wraps the ZK async api and converts the annoying callbacks into swimmingly sweet,
-eminently composable Futures. This also adds persistent watch goodness and some recursive operations.
-Originally based on the twitter scala wrapper now maintained by 4square (https://github.com/foursquare/scala-zookeeper-client),
-it has been pretty much rewritten at this point.
+This project is a fork of bigtoast's async ZooKeeper client, which is itself a fork of the synchronous
+Twitter/Foursquare ZooKeeper client. It adds asynchronous calls and wraps all the calls into futures. This version uses
+Scala futures.
 
-<b>Coolness Provided</b>
+<b>Provided features</b>
  * Futures instead of callbacks
  * Relative and Absolute paths
- * Persistent connection ( reconnect on expired session )
+ * Persistent connection (reconnect on expired session)
  * Persistent watches
  * Recursive create and delete
 
-I didn't implement any ACL stuff because I never use that shiz.
-
-Api Docs [http://bigtoast.github.com/docs/async-zk-client/0.2.1/](http://bigtoast.github.com/docs/async-zk-client/0.2.1/)
+<b>Not provided features</b>
+ * Access Control Lists
 
 Currently depends on 
- * ZK 3.4.3
+ * Apache ZooKeeper 3.4.3
  * Scala 2.10-2
 
 Getting Started
@@ -27,9 +25,9 @@ Getting Started
 build.sbt
 ```scala
 
-resolvers += "Bigtoast Repo" at "http://bigtoast.github.com/repo"
+resolvers += "PartyCoder Repo" at "http://partycoder.github.com/repo"
 
-libraryDependencies += "com.github.bigtoast" %% "async-zk-api" % "0.2.3"
+libraryDependencies += "com.github.partycoder" %% "async-zk-api" % "0.2.3-pc-0.2"
 
 ```
 
@@ -39,8 +37,8 @@ This automatically reconnect if the session expires
 
 ```scala
 
-import com.github.bigtoast.zookeeper._
 import akka.dispatch.ExecutionContext
+import com.github.partycoder.zookeeper._
 import java.util.concurrent.Executors
 import org.apache.zookeeper.Watcher.Event.KeeperState
 
@@ -48,11 +46,8 @@ import org.apache.zookeeper.Watcher.Event.KeeperState
  * client receives a SyncConnected event
  */
 val zk = new AsyncZooKeeperClient(
-
     servers = "127.0.0.1:2181,127.0.0.1:2182",
-
     sessionTimeout = 4000,
-
     connectTimeout = 4000,
 
     /** All paths not starting with '/' will have the base
@@ -62,8 +57,7 @@ val zk = new AsyncZooKeeperClient(
     basePath = "/death/to/false/metal",
 
     /** Or use the default ctx from your ActorSystem if you are using Akka already. */
-    eCtx = ExecutionContext.fromExecutorService( Executors.newCachedThreadPool ) )
-
+    eCtx = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool))
 
 ```
 
@@ -139,7 +133,6 @@ zk.watchConnection {
         // you can use this to register a callback if you need to.
 
     case _ =>
-
 }
 
 /** sets a persistent watch on '/death/to/false/metal/parent'. When triggered, getChildren
@@ -174,40 +167,3 @@ underlying client will be replaced.
 ```scala
 zk.handle // returns Option[ZooKeeper]
 ```
-
-The AsyncZooKeeperClient object contains some optional implicits to help out.
-
-There is a Derserializer type class to assist in deserialization. Just provide an implicit function of Array[Byte] => T. 
-One is already included for Array[Byte] => String.
-
-```scala
-import AsyncZooKeeperClient._
-import java.io._
-
-// simple java deserializer 
-def fromBytes[T]( bytes :Array[Byte]) :T = {
-    var ary :Array[Byte] = null
-    var is :ObjectInputStream = null
-    try {
-      val ba = new ByteArrayInputStream( bytes )
-      is = new ObjectInputStream( ba )
-      is.readObject().asInstanceOf[T]
-    } catch {
-      case e :NullPointerException => throw new IOException("Byte array empty")
-    } finally {
-      if ( is != null )
-        is.close
-    }
-  }
-}
-
-// my data 
-case class Node( host :String, port :Int )
-
-implicit def nodeDeser = fromBytes[Node] _
-
-zk.get("cluster/member-1") map { ( path, dataOp ) => dataOp.map { _.deser[Node] } } // Returns a Future[Option[Node]]
-
-```
-
-Provided also is an implicit conversion from Array[Byte] to Option[Array[Byte]], althought Im still unsure if this is a good idea.
