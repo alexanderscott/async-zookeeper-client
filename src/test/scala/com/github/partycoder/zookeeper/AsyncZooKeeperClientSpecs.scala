@@ -26,7 +26,7 @@ class AsyncZooKeeperClientSpecs extends WordSpec with ShouldMatchers with Before
 
   before {
     val context = ExecutionContext.fromExecutorService(eService)
-    zk = new AsyncZooKeeperClient("localhost:2181", 1000, 1000, "/async-client/tests", None, context)
+    zk = new AsyncZooKeeperClient("localhost:2181", 1000, 1000, "/async-client/tests", None)(context)
   }
 
   after {
@@ -63,34 +63,30 @@ class AsyncZooKeeperClientSpecs extends WordSpec with ShouldMatchers with Before
 
   "creating a node" should {
     "work with string data" in {
-      val s = zk.create("crabber", Some("crabber".getBytes), CreateMode.EPHEMERAL, Some("ctx")).await
+      val s = zk.create("crabber", Some("crabber".getBytes), CreateMode.EPHEMERAL).await
       s.path should be("/async-client/tests/crabber")
       s.name should be("/async-client/tests/crabber")
-      s.ctx should be(Some("ctx"))
     }
     "work with null data" in {
-      val s = zk.create("crabber", None, CreateMode.EPHEMERAL, Some("ctx")).await
+      val s = zk.create("crabber", None, CreateMode.EPHEMERAL).await
       s.path should be("/async-client/tests/crabber")
       s.name should be("/async-client/tests/crabber")
-      s.ctx should be(Some("ctx"))
     }
   }
 
   "creating and getting a node" should {
     "work with string data" in {
-      val s = zk.createAndGet("crabber", Some("crabber".getBytes), CreateMode.EPHEMERAL, Some("ctx")).await
+      val s = zk.createAndGet("crabber", Some("crabber".getBytes), CreateMode.EPHEMERAL).await
       s.path should be("/async-client/tests/crabber")
       AsyncZooKeeperClient.deSerializeString(s.data.get) should be("crabber")
       s.stat.getNumChildren should be(0)
-      s.ctx should be(Some("ctx"))
     }
 
     "work with null data" in {
-      val s = zk.createAndGet("crabber", None, CreateMode.EPHEMERAL, Some("ctx")).await
+      val s = zk.createAndGet("crabber", None, CreateMode.EPHEMERAL).await
       s.path should be("/async-client/tests/crabber")
       s.data should be('empty)
       s.stat.getMtime should be < Platform.currentTime
-      s.ctx should be(Some("ctx"))
     }
   }
 
@@ -200,12 +196,12 @@ class AsyncZooKeeperClientSpecs extends WordSpec with ShouldMatchers with Before
     "be triggered when data changes" in {
       val waitForMe = new CountDownLatch(1)
 
-      val watch = new Watcher {
+      val watcher = new Watcher {
         def process(event: WatchedEvent) = if (event.getType == EventType.NodeDataChanged) waitForMe.countDown()
       }
 
       for {
-        init <- zk.createAndGet("chubbs", Some("chubbs".getBytes), CreateMode.EPHEMERAL, watch = Some(watch))
+        init <- zk.createAndGet("chubbs", Some("chubbs".getBytes), CreateMode.EPHEMERAL, watch = Some(watcher))
         seq <- zk.set("chubbs", Some("blubber".getBytes))
       } yield seq
       waitForMe.await(1, TimeUnit.SECONDS)
