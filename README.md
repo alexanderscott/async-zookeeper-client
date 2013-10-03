@@ -157,13 +157,3 @@ zk.watchChildren("/some/parent",false){ kids => /* triggered just once */ }
 zk.watchData("/some/node/with/data", false){ case ( path, dataOp ) => /* triggered just once */ }
 
 ```
-
-Dangerous Stuff
----------------
-
-If you need the underlying zk client you can get it from the handle method. But don't hold on to it. If the ZK session expires, the
-underlying client will be replaced.
-
-```scala
-zk.handle // returns Option[ZooKeeper]
-```
