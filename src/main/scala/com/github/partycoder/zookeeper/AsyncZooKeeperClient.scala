@@ -105,7 +105,6 @@ final class AsyncZooKeeperClient(val servers: String, val sessionTimeout: Int, v
         event.getState match {
           case SyncConnected => connectionLatch.countDown()
           case Expired => connect()
-          case Disconnected => connect()
           case _ =>
         }
       }
