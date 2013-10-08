@@ -15,8 +15,53 @@ import scala.concurrent.{Await, Future, ExecutionContext, Promise}
 import scala.util.{Failure, Success}
 
 object AsyncZooKeeperClient {
-  def deSerializeString(array: Array[Byte]): String = {
+  @inline def deSerializeString(array: Array[Byte]): String = {
     array.view.map(_.toChar).mkString
+  }
+
+  @inline private[zookeeper] def handleNull(op: Option[Array[Byte]]): Array[Byte] = {
+    if (op == null) null else op.getOrElse(null)
+  }
+
+  /**
+   * Given a string representing a path, return each subpath
+   * Ex. subPaths("/a/b/c", "/") == ["/a", "/a/b", "/a/b/c"]
+   */
+  @inline private[zookeeper] def subPaths(path: String, sep: Char) = {
+    path.split(sep).toList match {
+      case Nil => Nil
+      case l :: tail => {
+        tail.foldLeft[List[String]](Nil) {
+          (xs, x) =>
+            (xs.headOption.getOrElse("") + sep.toString + x) :: xs
+        }.reverse
+      }
+    }
+  }
+
+  /**
+   * Create a zk path from a relative path. If an absolute path is passed in the base path will not be prepended.
+   * Trailing '/'s will be stripped except for the path '/' and all '//' will be translated to '/'.
+   *
+   * @param path relative or absolute path
+   * @return absolute zk path
+   */
+  @inline private[zookeeper] def mkPath(basePath: String, path: String) = {
+    (path startsWith "/" match {
+      case true => {
+        path
+      }
+      case false => {
+        s"$basePath/$path"
+      }
+    }).replaceAll("//", "/") match {
+      case str if str.length > 1 => {
+        str.stripSuffix("/")
+      }
+      case str => {
+        str
+      }
+    }
   }
 }
 
@@ -34,31 +79,13 @@ object AsyncZooKeeperClient {
  *
  * On connection the base path will be created if it does not already exist.
  */
-final class AsyncZooKeeperClient(val servers: String, val sessionTimeout: Int, val connectTimeout: Int,
-                           val basePath: String, watcher: Option[AsyncZooKeeperClient => Unit])
+final class AsyncZooKeeperClient(val servers: String, val sessionTimeout: Int, val connectTimeout: Int, val basePath: String)
                           (implicit val ctx: ExecutionContext) {
   import AsyncResponse._
+  import AsyncZooKeeperClient._
   private val log = LoggerFactory.getLogger(this.getClass)
 
-  @volatile private var clientWatcher: Option[Watcher] = None
   @volatile private var zk: ZooKeeper = null
-
-  def this(servers: String, sessionTimeout: Int, connectTimeout: Int, basePath: String)(ctx: ExecutionContext) = {
-    this(servers, sessionTimeout, connectTimeout, basePath, None)(ctx)
-  }
-
-  def this(servers: String, sessionTimeout: Int, connectTimeout: Int,
-           basePath: String, watcher: AsyncZooKeeperClient => Unit)(ctx: ExecutionContext) = {
-    this(servers, sessionTimeout, connectTimeout, basePath, Some(watcher))(ctx)
-  }
-
-  def this(servers: String)(ctx: ExecutionContext) = {
-    this(servers, 3000, 3000, "/", None)(ctx)
-  }
-
-  def this(servers: String, watcher: AsyncZooKeeperClient => Unit)(ctx: ExecutionContext) = {
-    this(servers, 3000, 3000, "/", watcher)(ctx)
-  }
 
   /**
    * Connect() attaches to the remote zookeeper and sets an instance variable.
@@ -78,11 +105,8 @@ final class AsyncZooKeeperClient(val servers: String, val sessionTimeout: Int, v
         event.getState match {
           case SyncConnected => connectionLatch.countDown()
           case Expired => connect()
+          case Disconnected => connect()
           case _ =>
-        }
-
-        clientWatcher.foreach {
-          _.process(event)
         }
       }
     })
@@ -104,56 +128,11 @@ final class AsyncZooKeeperClient(val servers: String, val sessionTimeout: Int, v
     }
   }
 
-  private[zookeeper] def handleNull(op: Option[Array[Byte]]): Array[Byte] = {
-    if (op == null) null else op.getOrElse(null)
-  }
-
-  /**
-   * Given a string representing a path, return each subpath
-   * Ex. subPaths("/a/b/c", "/") == ["/a", "/a/b", "/a/b/c"]
-   */
-  private[zookeeper] def subPaths(path: String, sep: Char) = {
-    path.split(sep).toList match {
-      case Nil => Nil
-      case l :: tail => {
-        tail.foldLeft[List[String]](Nil) {
-          (xs, x) =>
-            (xs.headOption.getOrElse("") + sep.toString + x) :: xs
-        }.reverse
-      }
-    }
-  }
-
-  /**
-   * Create a zk path from a relative path. If an absolute path is passed in the base path will not be prepended.
-   * Trailing '/'s will be stripped except for the path '/' and all '//' will be translated to '/'.
-   *
-   * @param path relative or absolute path
-   * @return absolute zk path
-   */
-  private[zookeeper] def mkPath(path: String) = {
-    (path startsWith "/" match {
-      case true => {
-        path
-      }
-      case false => {
-        "%s/%s".format(basePath, path)
-      }
-    }).replaceAll("//", "/") match {
-      case str if str.length > 1 => {
-        str.stripSuffix("/")
-      }
-      case str => {
-        str
-      }
-    }
-  }
-
   /**
    * Helper method to convert a zk response in to a client response and handle the errors
    **/
-  def handleResponse[@specialized T](rc: Int, path: String, p: Promise[T], stat: Stat)(f: => T): Future[T] = {
-    Code.get(rc) match {
+  def handleResponse[@specialized T](responseCode: Int, path: String, p: Promise[T], stat: Stat)(f: => T): Future[T] = {
+    Code.get(responseCode) match {
       case Code.OK => {
         p.success(f)
       }
@@ -176,9 +155,9 @@ final class AsyncZooKeeperClient(val servers: String, val sessionTimeout: Int, v
    */
   def exists(path: String, watch: Option[Watcher] = None): Future[StatResponse] = {
     val p = Promise[StatResponse]()
-    zk.exists(mkPath(path), watch.getOrElse(null), new StatCallback {
-      def processResult(rc: Int, path: String, ignore: Any, stat: Stat) {
-        handleResponse(rc, path, p, stat) {
+    zk.exists(mkPath(basePath, path), watch.getOrElse(null), new StatCallback {
+      def processResult(responseCode: Int, path: String, ignore: Any, stat: Stat) {
+        handleResponse(responseCode, path, p, stat) {
           StatResponse(path, stat)
         }
       }
@@ -194,9 +173,9 @@ final class AsyncZooKeeperClient(val servers: String, val sessionTimeout: Int, v
    */
   def getChildren(path: String, watch: Option[Watcher] = None): Future[ChildrenResponse] = {
     val p = Promise[ChildrenResponse]()
-    zk.getChildren(mkPath(path), watch.getOrElse(null), new Children2Callback {
-      def processResult(rc: Int, path: String, ignore: Any, children: util.List[String], stat: Stat) {
-        handleResponse(rc, path, p, stat) {
+    zk.getChildren(mkPath(basePath, path), watch.getOrElse(null), new Children2Callback {
+      def processResult(responseCode: Int, path: String, ignore: Any, children: util.List[String], stat: Stat) {
+        handleResponse(responseCode, path, p, stat) {
           ChildrenResponse(children.toSeq, path, stat)
         }
       }
@@ -207,27 +186,31 @@ final class AsyncZooKeeperClient(val servers: String, val sessionTimeout: Int, v
   /**
    * Close the underlying zk connection
    **/
-  def close():Unit = {
+  def close(): Unit = {
     zk.close()
   }
 
   /**
    * Checks the connection by checking existence of "/"
    **/
-  def isAlive: Future[Boolean] = exists("/") map {
-    _.stat.getVersion >= 0
+  def isAlive: Future[Boolean] = {
+    exists("/") map {
+      _.stat.getVersion >= 0
+    }
   }
 
   /**
    * Check the connection synchronously
    **/
-  def isAliveSync: Boolean = try {
-    zk.exists("/", false)
-    true
-  } catch {
-    case e: Throwable => {
-      log.warn("ZK not connected in isAliveSync", e)
-      false
+  def isAliveSync: Boolean = {
+    try {
+      zk.exists("/", false)
+      true
+    } catch {
+      case e: Throwable => {
+        log.warn("ZK not connected in isAliveSync", e)
+        false
+      }
     }
   }
 
@@ -237,7 +220,7 @@ final class AsyncZooKeeperClient(val servers: String, val sessionTimeout: Int, v
   def createPath(path: String): Future[VoidResponse] = {
     Future.sequence {
       for {
-        subPath <- subPaths(mkPath(path), '/')
+        subPath <- subPaths(mkPath(basePath, path), '/')
       } yield {
         create(subPath, null, CreateMode.PERSISTENT).recover {
           case e: FailedAsyncResponse if e.code == Code.NODEEXISTS => VoidResponse(subPath)
@@ -256,9 +239,9 @@ final class AsyncZooKeeperClient(val servers: String, val sessionTimeout: Int, v
    */
   def create(path: String, data: Option[Array[Byte]], createMode: CreateMode): Future[StringResponse] = {
     val p = Promise[StringResponse]()
-    zk.create(mkPath(path), handleNull(data), Ids.OPEN_ACL_UNSAFE, createMode, new StringCallback {
-      def processResult(rc: Int, path: String, ignore: Any, name: String) {
-        handleResponse(rc, path, p, null) {
+    zk.create(mkPath(basePath, path), handleNull(data), Ids.OPEN_ACL_UNSAFE, createMode, new StringCallback {
+      def processResult(responseCode: Int, path: String, ignore: Any, name: String) {
+        handleResponse(responseCode, path, p, null) {
           StringResponse(name, path)
         }
       }
@@ -269,7 +252,8 @@ final class AsyncZooKeeperClient(val servers: String, val sessionTimeout: Int, v
   /** Create a node and then return it. Under the hood this is a create followed by a get. If the stat or data is not
     * needed use a plain create which is cheaper.
     */
-  def createAndGet(path: String, data: Option[Array[Byte]], createMode: CreateMode, watch: Option[Watcher] = None): Future[DataResponse] = {
+  def createAndGet(path: String, data: Option[Array[Byte]],
+                   createMode: CreateMode, watch: Option[Watcher] = None): Future[DataResponse] = {
     create(path, data, createMode) flatMap {
       _ => get(path, watch = watch)
     }
@@ -302,9 +286,9 @@ final class AsyncZooKeeperClient(val servers: String, val sessionTimeout: Int, v
    */
   def get(path: String, watch: Option[Watcher] = None): Future[DataResponse] = {
     val p = Promise[DataResponse]()
-    zk.getData(mkPath(path), watch.getOrElse(null), new DataCallback {
-      def processResult(rc: Int, path: String, ignore: Any, data: Array[Byte], stat: Stat) {
-        handleResponse(rc, path, p, stat) {
+    zk.getData(mkPath(basePath, path), watch.getOrElse(null), new DataCallback {
+      def processResult(responseCode: Int, path: String, ignore: Any, data: Array[Byte], stat: Stat) {
+        handleResponse(responseCode, path, p, stat) {
           DataResponse(Option(data), path, stat)
         }
       }
@@ -320,9 +304,9 @@ final class AsyncZooKeeperClient(val servers: String, val sessionTimeout: Int, v
    */
   def set(path: String, data: Option[Array[Byte]], version: Int = -1): Future[StatResponse] = {
     val p = Promise[StatResponse]()
-    zk.setData(mkPath(path), handleNull(data), version, new StatCallback {
-      def processResult(rc: Int, path: String, ignore: Any, stat: Stat) {
-        handleResponse(rc, path, p, stat) {
+    zk.setData(mkPath(basePath, path), handleNull(data), version, new StatCallback {
+      def processResult(responseCode: Int, path: String, ignore: Any, stat: Stat) {
+        handleResponse(responseCode, path, p, stat) {
           StatResponse(path, stat)
         }
       }
@@ -348,9 +332,9 @@ final class AsyncZooKeeperClient(val servers: String, val sessionTimeout: Int, v
       }
     } else {
       val p = Promise[VoidResponse]()
-      zk.delete(mkPath(path), version, new VoidCallback {
-        def processResult(rc: Int, path: String, ignore: Any) {
-          handleResponse(rc, path, p, null) {
+      zk.delete(mkPath(basePath, path), version, new VoidCallback {
+        def processResult(responseCode: Int, path: String, ignore: Any) {
+          handleResponse(responseCode, path, p, null) {
             VoidResponse(path)
           }
         }
@@ -364,21 +348,21 @@ final class AsyncZooKeeperClient(val servers: String, val sessionTimeout: Int, v
    * Delete all the children of a node but not the node.
    **/
   def deleteChildren(path: String): Future[VoidResponse] = {
-    def recurse(p: String): Future[VoidResponse] = {
-      getChildren(p) flatMap {
+    def recurse(subPath: String): Future[VoidResponse] = {
+      getChildren(subPath) flatMap {
         response => {
           Future.sequence {
             response.children.map {
-              child => recurse(mkPath(p) + "/" + child)
+              child => recurse(mkPath(basePath, subPath) + "/" + child)
             }
           }
         }
       } flatMap {
         seq => {
-          if (p == path) {
+          if (subPath == path) {
             Future.successful(VoidResponse(path))
           } else {
-            delete(p, -1)
+            delete(subPath, -1)
           }
         }
       }
@@ -424,10 +408,10 @@ final class AsyncZooKeeperClient(val servers: String, val sessionTimeout: Int, v
         case e if e == EventType.NodeCreated || e == EventType.NodeDataChanged => {
           get(path, watch = ifPersist).onComplete {
             case Failure(error) => {
-              log.error("Error on NodeCreated callback for path %s".format(mkPath(path)), error)
+              log.error("Error on NodeCreated callback for path %s".format(mkPath(basePath, path)), error)
             }
             case Success(data) => {
-              onData(mkPath(path), Some(data))
+              onData(mkPath(basePath, path), Some(data))
             }
           }
         }
@@ -435,13 +419,13 @@ final class AsyncZooKeeperClient(val servers: String, val sessionTimeout: Int, v
         case EventType.NodeDeleted => {
           get(path, watch = ifPersist) onComplete {
             case Failure(error: FailedAsyncResponse) if error.code == Code.NONODE => {
-              onData(mkPath(path), None)
+              onData(mkPath(basePath, path), None)
             }
             case Success(data) => {
-              onData(mkPath(path), Some(data))
+              onData(mkPath(basePath, path), Some(data))
             }
             case Failure(error) => {
-              log.error("Error on NodeCreated callback for path %s".format(mkPath(path)), error)
+              log.error("Error on NodeCreated callback for path %s".format(mkPath(basePath, path)), error)
             }
           }
         }
@@ -455,15 +439,16 @@ final class AsyncZooKeeperClient(val servers: String, val sessionTimeout: Int, v
    * Sets a persistent child watch.
    * @see watchChildren
    */
-  def watchChildren(path: String)(onKids: ChildrenResponse => Unit): Future[ChildrenResponse] = {
+  @inline def watchChildren(path: String)(onKids: ChildrenResponse => Unit): Future[ChildrenResponse] = {
     watchChildren(path, persistent = true)(onKids)
   }
 
   /**
    * Set a persistent watch on if the children of this node change. If they do the updated ChildResponse will be returned.
    */
-  def watchChildren(path: String, persistent: => Boolean)(onKids: ChildrenResponse => Unit): Future[ChildrenResponse] = {
-    val p = mkPath(path)
+  def watchChildren(path: String, persistent: => Boolean)
+                   (onKids: ChildrenResponse => Unit): Future[ChildrenResponse] = {
+    val p = mkPath(basePath, path)
     val w = new Watcher {
       def ifPersist: Option[Watcher] = {
         if (persistent) Some(this) else None
@@ -489,18 +474,6 @@ final class AsyncZooKeeperClient(val servers: String, val sessionTimeout: Int, v
     }
 
     getChildren(p, watch = Some(w))
-  }
-
-  /**
-   * Sets the client watcher. Reconnecting on session expired is handled by the client and doesn't need to be handled
-   * here.
-   */
-  def watchConnection(onState: KeeperState => Unit): Unit = {
-    val w = new Watcher {
-      def process(event: WatchedEvent) = onState(event.getState)
-    }
-
-    clientWatcher = Some(w)
   }
 
   connect()

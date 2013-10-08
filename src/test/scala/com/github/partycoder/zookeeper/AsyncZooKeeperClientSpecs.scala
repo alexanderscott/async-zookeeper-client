@@ -23,10 +23,11 @@ class AsyncZooKeeperClientSpecs extends WordSpec with ShouldMatchers with Before
   }
 
   implicit def toDoAwait[T](f: Future[T]) = new DoAwait[T](f)
+  val basePath = "/async-client/tests"
 
   before {
     val context = ExecutionContext.fromExecutorService(eService)
-    zk = new AsyncZooKeeperClient("localhost:2181", 1000, 1000, "/async-client/tests", None)(context)
+    zk = new AsyncZooKeeperClient("localhost:2181", 1000, 1000, basePath)(context)
   }
 
   after {
@@ -42,19 +43,19 @@ class AsyncZooKeeperClientSpecs extends WordSpec with ShouldMatchers with Before
   }
 
   "A relative path should have base path prepended" in {
-    zk.mkPath("testers") should be("/async-client/tests/testers")
+    AsyncZooKeeperClient.mkPath(basePath, "testers") should be(s"$basePath/testers")
   }
 
-  "An emtpy path should be base path" in {
-    zk.mkPath("") should be("/async-client/tests")
+  "An empty path should be base path" in {
+    AsyncZooKeeperClient.mkPath(basePath, "") should be(basePath)
   }
 
   "An absolute path should not have a base path" in {
-    zk.mkPath("/abs/path") should be("/abs/path")
+    AsyncZooKeeperClient.mkPath(basePath, "/abs/path") should be("/abs/path")
   }
 
   "An absolute '/' path should be '/'" in {
-    zk.mkPath("/") should be("/")
+    AsyncZooKeeperClient.mkPath(basePath, "/") should be("/")
   }
 
   "connecting should work with running server" in {
