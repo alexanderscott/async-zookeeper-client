@@ -4,7 +4,7 @@ import scala.Some
 
 object AsyncZkClient extends Build {
 
-  val VERSION = "0.2.3-pc-0.4"
+  val VERSION = "0.2.3-pc-0.6"
 
   val dependencies =
     "org.apache.zookeeper" %  "zookeeper"  % "3.4.5" ::

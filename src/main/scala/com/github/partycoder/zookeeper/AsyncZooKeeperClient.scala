@@ -242,7 +242,7 @@ final class AsyncZooKeeperClient(val servers: String, val sessionTimeout: Int, v
       val lastDelimiter = path.lastIndexOf("/")
       val parent = path.substring(0, lastDelimiter)
 
-      steps += create(parent, None, CreateMode.EPHEMERAL) recover {
+      steps += create(parent, None, CreateMode.PERSISTENT) recover {
         case FailedAsyncResponse(e: NodeExistsException, _, _) => true
       }
     }
