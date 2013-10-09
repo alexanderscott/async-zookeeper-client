@@ -5,7 +5,7 @@ import java.util.concurrent.{TimeUnit, CountDownLatch}
 import org.apache.zookeeper._
 import org.apache.zookeeper.AsyncCallback._
 import org.apache.zookeeper.data.Stat
-import org.apache.zookeeper.KeeperException.Code
+import org.apache.zookeeper.KeeperException.{NodeExistsException, Code}
 import org.apache.zookeeper.Watcher.Event.{EventType, KeeperState}
 import org.apache.zookeeper.ZooDefs.Ids
 import org.slf4j.LoggerFactory
@@ -13,6 +13,7 @@ import scala.collection.JavaConversions._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future, ExecutionContext, Promise}
 import scala.util.{Failure, Success}
+import scala.collection.mutable
 
 object AsyncZooKeeperClient {
   @inline def deSerializeString(array: Array[Byte]): String = {
@@ -227,6 +228,31 @@ final class AsyncZooKeeperClient(val servers: String, val sessionTimeout: Int, v
       }
     } map {
       _ => VoidResponse(path)
+    }
+  }
+
+  /**
+   * Shorthand for creating an ephemeral node and its parent path recursively. If the parent path exists the error
+   * is ignored.
+   */
+  def createEphemeral(path: String, data: Option[Array[Byte]]): Future[Boolean] = {
+    val steps = mutable.MutableList.empty[Future[Any]]
+
+    if (path.contains("/")) {
+      val lastDelimiter = path.lastIndexOf("/")
+      val parent = path.substring(0, lastDelimiter)
+
+      steps += create(parent, None, CreateMode.EPHEMERAL) recover {
+        case FailedAsyncResponse(e: NodeExistsException, _, _) => true
+      }
+    }
+
+    steps += create(path, data, CreateMode.EPHEMERAL)
+
+    Future.sequence(steps) map {
+      _ => true
+    } recover {
+      case e: Throwable => throw e
     }
   }
 
