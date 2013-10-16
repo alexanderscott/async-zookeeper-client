@@ -253,6 +253,10 @@ class AsyncZooKeeperClientSpecs extends WordSpec with ShouldMatchers with Before
     }
   }
 
+  "creating ephemeral with the shortcut method nodes" in {
+    zk.createEphemeral("a/b/c/d/e/f", Some("123".getBytes)).await should be(true)
+  }
+
   "setting watches on exist" in {
     val waitForMe = new CountDownLatch(1)
     val waitForMeToo = new CountDownLatch(1)
