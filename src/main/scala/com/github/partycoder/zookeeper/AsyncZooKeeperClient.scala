@@ -239,12 +239,8 @@ final class AsyncZooKeeperClient(val servers: String, val sessionTimeout: Int, v
     val steps = mutable.MutableList.empty[Future[Any]]
 
     if (path.contains("/")) {
-      val lastDelimiter = path.lastIndexOf("/")
-      val parent = path.substring(0, lastDelimiter)
-
-      steps += create(parent, None, CreateMode.PERSISTENT) recover {
-        case FailedAsyncResponse(e: NodeExistsException, _, _) => true
-      }
+      val parent = path.substring(0, path.lastIndexOf("/"))
+      steps += createPath(parent)
     }
 
     steps += create(path, data, CreateMode.EPHEMERAL)
