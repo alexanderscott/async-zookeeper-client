@@ -4,11 +4,11 @@ import scala.Some
 
 object AsyncZkClient extends Build {
 
-  val VERSION = "0.2.3-pc-0.7"
+  val VERSION = "0.2.3-pc-0.8"
 
   val dependencies =
-    "org.apache.zookeeper" %  "zookeeper"  % "3.4.5" ::
-    "org.scalatest"        %% "scalatest"  % "1.9.2" % "test" :: Nil
+    "org.apache.zookeeper" %  "zookeeper"  % "3.4.6" ::
+    "org.scalatest"        %% "scalatest"  % "2.1.4" % "test" :: Nil
 
   val publishDocs = TaskKey[Unit]("publish-docs")
 
@@ -17,7 +17,7 @@ object AsyncZkClient extends Build {
       organization := "com.github.partycoder",
       name         := "async-zk-client",
       version      := VERSION,
-      scalaVersion := "2.10.2",
+      scalaVersion := "2.11.0",
 
       ivyXML :=
         <dependencies>
