@@ -4,7 +4,7 @@ import scala.Some
 
 object AsyncZkClient extends Build {
 
-  val VERSION = "0.2.3-pc-0.8"
+  val VERSION = "0.2.3-pc-0.9"
 
   val dependencies =
     "org.apache.zookeeper" %  "zookeeper"  % "3.4.6" ::
@@ -17,7 +17,7 @@ object AsyncZkClient extends Build {
       organization := "com.github.partycoder",
       name         := "async-zk-client",
       version      := VERSION,
-      scalaVersion := "2.11.0",
+      scalaVersion := "2.10.3",
 
       ivyXML :=
         <dependencies>
