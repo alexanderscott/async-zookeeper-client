@@ -14,7 +14,7 @@ object AsyncZkClient extends Build {
 
   val project = Project("async-zk-client",file("."),
     settings = Defaults.defaultSettings ++ Seq(
-      organization := "com.github.partycoder",
+      organization := "io.github.alexanderscott",
       name         := "async-zk-client",
       version      := VERSION,
       scalaVersion := "2.10.3",
@@ -28,10 +28,10 @@ object AsyncZkClient extends Build {
           <exclude org="thrift" module="libthrift" />
         </dependencies>,
 
-      publishTo := Some(Resolver.file("partycoder.github.com", file(Path.userHome + "/Workspace/repo"))),
+      publishTo := Some(Resolver.file("alexanderscott.github.io", file(Path.userHome + "/Developer/alex/maven-repo"))),
 
       publishDocs <<= ( doc in Compile , target in Compile in doc, version ) map { ( docs, dir, v ) =>
-        val newDir = Path.userHome / "/Workspace/repo/docs/async-zk-client" / v
+        val newDir = Path.userHome / "/Developer/alex/maven-repo/docs/async-zk-client" / v
         IO.delete( newDir )
         IO.createDirectory( newDir )
         IO.copyDirectory( dir, newDir )

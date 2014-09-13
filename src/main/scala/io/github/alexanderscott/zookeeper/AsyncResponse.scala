@@ -1,4 +1,4 @@
-package com.github.partycoder.zookeeper
+package io.github.alexanderscott.zookeeper
 
 import org.apache.zookeeper.KeeperException.Code
 import org.apache.zookeeper.KeeperException

@@ -1,4 +1,4 @@
-package com.github.partycoder.zookeeper
+package io.github.alexanderscott.zookeeper
 
 import java.util
 import java.util.concurrent.{TimeUnit, CountDownLatch}

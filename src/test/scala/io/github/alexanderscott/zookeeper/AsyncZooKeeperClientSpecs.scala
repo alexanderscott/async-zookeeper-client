@@ -1,4 +1,4 @@
-package com.github.partycoder.zookeeper
+package io.github.alexanderscott.zookeeper
 
 import AsyncResponse.FailedAsyncResponse
 import compat.Platform
