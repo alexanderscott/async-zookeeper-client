@@ -16,8 +16,8 @@ Scala futures.
  * Access Control Lists
 
 Currently depends on 
- * Apache ZooKeeper 3.4.3
- * Scala 2.10-2
+ * Apache ZooKeeper 3.4.6
+ * Scala 2.10.3
 
 Getting Started
 ---------------
@@ -25,9 +25,9 @@ Getting Started
 build.sbt
 ```scala
 
-resolvers += "PartyCoder Repo" at "http://partycoder.github.com/repo"
+resolvers += "AlexanderScott Repo" at "http://alexanderscott.github.io/maven-repo"
 
-libraryDependencies += "com.github.partycoder" %% "async-zk-api" % "0.2.3-pc-0.2"
+libraryDependencies += "io.github.alexanderscott" %% "async-zk-client" % "0.2.3-ae-0.10"
 
 ```
 

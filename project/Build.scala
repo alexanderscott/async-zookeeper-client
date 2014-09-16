@@ -4,11 +4,17 @@ import scala.Some
 
 object AsyncZkClient extends Build {
 
-  val VERSION = "0.2.3-pc-0.9"
+  val VERSION = "0.2.3-ae-0.10"
 
-  val dependencies =
-    "org.apache.zookeeper" %  "zookeeper"  % "3.4.6" ::
-    "org.scalatest"        %% "scalatest"  % "2.1.4" % "test" :: Nil
+  val dependencies = Seq(
+    "org.apache.zookeeper" %  "zookeeper"  % "3.4.6" excludeAll (
+                                                        ExclusionRule(organization = "log4j"),
+                                                        ExclusionRule(organization = "org.slf4j")
+                                                     ),
+    "org.slf4j"            %  "log4j-over-slf4j"   % "1.7.5",
+    "org.scalatest"        %% "scalatest"  % "2.1.4" % "test",
+    "org.slf4j"            %  "slf4j-simple"       % "1.7.5" % "test"
+  )
 
   val publishDocs = TaskKey[Unit]("publish-docs")
 
@@ -19,14 +25,6 @@ object AsyncZkClient extends Build {
       version      := VERSION,
       scalaVersion := "2.10.3",
 
-      ivyXML :=
-        <dependencies>
-          <exclude org="org.jboss.netty" module="netty" />
-          <exclude org="com.sun.jmx" module="jmxri" />
-          <exclude org="com.sun.jdmk" module="jmxtools" />
-          <exclude org="javax.jms" module="jms" />
-          <exclude org="thrift" module="libthrift" />
-        </dependencies>,
 
       publishTo := Some(Resolver.file("alexanderscott.github.io", file(Path.userHome + "/Developer/alex/maven-repo"))),
 
