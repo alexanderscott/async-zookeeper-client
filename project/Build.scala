@@ -23,10 +23,11 @@ object AsyncZkClient extends Build {
       organization := "io.github.alexanderscott",
       name         := "async-zk-client",
       version      := VERSION,
-      scalaVersion := "2.10.3",
+      scalaVersion := "2.10.4",
+      crossScalaVersions := Seq("2.11.2", "2.10.4"),
+      licenses     += ("Apache-2.0", url("http://www.apache.org/licenses/LICENSE-2.0.html")),
 
-
-      publishTo := Some(Resolver.file("alexanderscott.github.io", file(Path.userHome + "/Developer/alex/maven-repo"))),
+      //publishTo := Some(Resolver.file("alexanderscott.github.io", file(Path.userHome + "/Developer/alex/maven-repo"))),
 
       publishDocs <<= ( doc in Compile , target in Compile in doc, version ) map { ( docs, dir, v ) =>
         val newDir = Path.userHome / "/Developer/alex/maven-repo/docs/async-zk-client" / v
@@ -38,7 +39,7 @@ object AsyncZkClient extends Build {
       libraryDependencies ++= dependencies,
 
       resolvers += Resolver.url("linter", url("http://hairyfotr.github.io/linteRepo/releases"))
-    ))
+    ) ++ bintray.Plugin.bintrayPublishSettings)
 
   addCompilerPlugin("com.foursquare.lint" %% "linter" % "0.1-SNAPSHOT")
 }
