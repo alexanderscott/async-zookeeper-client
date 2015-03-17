@@ -1,4 +1,4 @@
-package io.github.alexanderscott.zookeeper
+package com.crunchdevelopment.zookeeper
 
 import java.util
 import java.util.concurrent.{TimeUnit, CountDownLatch}
@@ -84,7 +84,7 @@ final class AsyncZooKeeperClient(val servers: String, val sessionTimeout: Int, v
                           (implicit val ctx: ExecutionContext) {
   import AsyncResponse._
   import AsyncZooKeeperClient._
-  private val log = LoggerFactory.getLogger(this.getClass)
+  private[this] val log = LoggerFactory.getLogger(this.getClass)
 
   @volatile private var zk: ZooKeeper = null
 

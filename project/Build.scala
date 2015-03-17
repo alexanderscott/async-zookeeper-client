@@ -20,7 +20,7 @@ object AsyncZkClient extends Build {
 
   val project = Project("async-zk-client",file("."),
     settings = Defaults.defaultSettings ++ Seq(
-      organization := "io.github.alexanderscott",
+      organization := "com.crunchdevelopment",
       name         := "async-zk-client",
       version      := VERSION,
       scalaVersion := "2.10.4",

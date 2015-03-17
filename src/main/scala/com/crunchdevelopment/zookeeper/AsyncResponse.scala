@@ -1,4 +1,4 @@
-package io.github.alexanderscott.zookeeper
+package com.crunchdevelopment.zookeeper
 
 import org.apache.zookeeper.KeeperException.Code
 import org.apache.zookeeper.KeeperException

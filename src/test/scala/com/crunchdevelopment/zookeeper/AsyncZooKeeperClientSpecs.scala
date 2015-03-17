@@ -1,4 +1,4 @@
-package io.github.alexanderscott.zookeeper
+package com.crunchdevelopment.zookeeper
 
 import AsyncResponse.FailedAsyncResponse
 import compat.Platform
